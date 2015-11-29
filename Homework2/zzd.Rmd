@@ -1,0 +1,74 @@
+---
+title: "homework2"
+author: "zhuzhengda"
+date: "2015Äê11ÔÂ24ÈÕ"
+output: html_document
+---
+
+# Hierarchical clustering using original data
+Here I invoke built-in function to perform the HC. According to the heatmap, we can easily figure out that the patients should be divided into two types. And we can see how it work out using the indicator of 'ER_Status_nature2012' as the control group. I use the first two variables to define the coordinates of each patient in the map of the results. The corlor of each point represents our clustering results and the shape represents the respective referential index.
+
+```{r}
+patient<-read.table("GeneMatrix.txt",sep ='\t',header=TRUE,as.is=TRUE) # read in the data
+patient<-t(patient)
+HC<-function(patient){
+  #patient<-t(patient)
+  dist.e<-dist(patient,method='euclidean')  # hierarchical clustering using euclidean
+  heatmap(as.matrix(dist.e),labRow = F, labCol = F,main = 'hierarchical clustering') #Cluster map 
+  model1<-hclust(dist.e)
+  result<-cutree(model1,k=2) # classification according to 'k'
+  info<-read.table("clinical_data",sep ='\t',header=TRUE,as.is=TRUE) # read in somemore information to find the criteria to analysis the result
+  m<-length(result)
+  cr<-rep("positive",m) 
+  for(i in 1:m){
+    str<-attr(result,"name")[i]
+    s<-unlist(strsplit(str, "\\."))
+    cg<-paste(s[1],s[2],s[3],s[4],sep="-")
+    #temp<-subset(info,sampleID==attr(result,"name")[i])
+    temp<-subset(info,sampleID==cg)   
+    if(dim(temp)[1]==0)
+      cr[i]<-"Notrecognized" # if the patient do not have the corresponding information, a label of 'Notrecognized' will be defined
+    else
+      cr[i]<-temp$ER_Status_nature2012
+  }
+  x<-patient[,1]  # Here I use the first two variables to show the result
+  y<-patient[,2]
+  ER_Status_nature2012<-cr
+  library(ggplot2)
+  p<-ggplot(data.frame(x,y,ER_Status_nature2012,result),aes(x,y))
+  p+geom_point(size=3,alpha=0.8,aes(colour=factor(result),shape = factor(ER_Status_nature2012)))
+}
+HC(patient)
+```
+
+# Hierarchical clustering using data processed by PCA
+I realize the PCA algorithm and compress the initial data according to 'rerr' which means how much information will be thrown away after PCA.
+```{r}
+PCA<-function(data,rerr){
+  sd=scale(data)  # normalization
+  c=cor(sd)
+  e=eigen(c)
+  v=e$value    # eigenvalues
+  su=sum(v)
+  m=dim(data)[1]
+  n=dim(data)[2]
+  num=0
+  for(i in 1:m){  # find suitable number of eigenvalues and eigenvectors according to 'rerr'
+    num=num+v[i]
+    if((num/su)>(1-rerr))
+      break
+  }
+  pcs=e$vectors[,1:i]
+  cprs_data=data%*%pcs  # compressed data
+  return(cprs_data)
+}
+
+patient<-read.table("GeneMatrix.txt",sep ='\t',header=TRUE,as.is=TRUE) # read in the data
+patient<-t(patient)
+cprs<-PCA(patient,0.1) # compressed data
+HC(cprs) 
+
+```
+
+
+
