@@ -1,0 +1,206 @@
+---
+title: "Bioinfo_HW2_1"
+author: "Rhodes"
+date: "2015年11月26日"
+output: html_document
+---
+
+##Hierarchical Clustering Based on Original Data
+I use the R code as followed to do the hierarchical clustering, in which the method I choose is "average".
+
+```{r warning=FALSE,message=FALSE}
+library(RColorBrewer)
+GeneMatrix <- read.delim("D:/GeneMatrix.txt")
+GeneMatrix <- t(GeneMatrix)
+length<-length(GeneMatrix[1,])
+GeneMatrix <- as.data.frame(GeneMatrix)
+#Calculate the distance
+dist=dist(GeneMatrix,method="euclidean")
+#Hierarchical Clustering Model
+H_cluster<-hclust(dist,method="average")
+model<-H_cluster
+H_cluster<-cbind(GeneMatrix,Cluster=H_cluster$order)
+H_cluster<-as.data.frame(H_cluster)
+H_cluster<-H_cluster[order(H_cluster$Cluster),]
+H_cluster<-H_cluster[,1:length]
+Matrix<-data.matrix(H_cluster)
+```
+
+The hierarchical clustering leads to the heatmap as followed, I use the "heatmap" function instead of the ggplot function because of the efficiency.In R, hclust function do the hierarchical clustering automatically: 
+
+```{r, echo=FALSE}
+heatmap(Matrix,col = rev(brewer.pal(10,"RdYlBu")),labRow = F, labCol = F,scale='column',main="Hierarchical Clustering")
+```
+
+You can still see there are "horizontal stripes" in the heatmap, which implies the classification of the patients.
+
+Now I try to use the model to do the prediction to see whether the clustering is successful or not
+```{r, echo=FALSE}
+predict=cutree(model,k=2)
+predict<-as.data.frame(predict)
+
+clinical_data <- read.delim("D:/clinical_data.txt")
+state=clinical_data[1,8]
+GeneMatrix <- cbind(state,GeneMatrix)
+names(GeneMatrix)[which(names(GeneMatrix[,])=="PH-4")]=c("PH4")
+for(i in 1:3)
+{
+  clinical_data$sampleID=sub("-",".",clinical_data$sampleID)
+}
+for( i in 1:length(GeneMatrix$state))
+{
+  GeneMatrix[i,1]=clinical_data[which(clinical_data$sampleID==row.names(GeneMatrix[i,])),8]
+}
+count=0
+for(i in 1:length(GeneMatrix[,1]))
+{
+  if((as.character(GeneMatrix[i,1])=="Positive" && predict[i,1]=="2") || (as.character(GeneMatrix[i,1])=="Negative" && predict[i,1]=="1"))
+    count=count+1
+}
+```
+
+```{r echo=FALSE}
+show("Error Rate:")
+show(count/length(GeneMatrix[,1]))
+```
+
+Then Before the PCA process, which is a method of feature extracting, I use the Boruta Package to do the feature election work. The result of the feature election can provide some reference for the number of the features I choose later.
+The Boruta fit a Random Forest model to the data and use the Z value as the attribution of the features during the process.
+The Code is as followed:(It might take a while, so please be patient)
+
+```{r warning=FALSE,message=FALSE}
+GeneMatrix <- read.delim("D:/GeneMatrix.txt")
+GeneMatrix <- t(GeneMatrix)
+length<-length(GeneMatrix[1,])
+GeneMatrix <- as.data.frame(GeneMatrix)
+clinical_data <- read.delim("D:/clinical_data.txt")
+state=clinical_data[1,8]
+GeneMatrix <- cbind(state,GeneMatrix)
+names(GeneMatrix)[which(names(GeneMatrix[,])=="PH-4")]=c("PH4")
+for(i in 1:3)
+{
+  clinical_data$sampleID=sub("-",".",clinical_data$sampleID)
+}
+for( i in 1:length(GeneMatrix$state))
+{
+  GeneMatrix[i,1]=clinical_data[which(clinical_data$sampleID==row.names(GeneMatrix[i,])),8]
+}
+library(Boruta)
+select <- Boruta(state~.,data=GeneMatrix,doTrace=2)
+SelectGeneMatrix=GeneMatrix[,getSelectedAttributes(select)]
+select
+length<-length(SelectGeneMatrix[1,])
+H_cluster<-hclust(dist(SelectGeneMatrix),method="average")
+newmodel<-H_cluster
+H_cluster<-cbind(SelectGeneMatrix,Cluster=H_cluster$order)
+H_cluster<-as.data.frame(H_cluster)
+H_cluster<-H_cluster[order(H_cluster$Cluster),]
+H_cluster<-H_cluster[,1:length]
+Matrix<-data.matrix(H_cluster)
+```
+We can see there are about 72 features that are  considered important.
+Then I can plot the heatmap
+```{r, echo=FALSE}
+heatmap(Matrix,col = rev(brewer.pal(10,"RdYlBu")),labRow = F, labCol = F,scale='column',main="Hierarchical Clustering")
+```
+
+```{r}
+predict=cutree(newmodel,k=2)
+predict<-as.data.frame(predict)
+count=0
+for(i in 1:length(GeneMatrix[,1]))
+{
+  if((as.character(GeneMatrix[i,1])=="Positive" && predict[i,1]=="2") || (as.character(GeneMatrix[i,1])=="Negative" && predict[i,1]=="1"))
+    count=count+1
+}
+```
+
+```{r echo=FALSE}
+show("Error Rate:")
+show(count/length(GeneMatrix[,1]))
+```
+
+##Hierarchical Clustering Based on Data after PCA
+Finally, I use the K-L transition which is the same as PCA.
+```{r warning=FALSE,message=FALSE}
+library(RColorBrewer)
+#读取数据
+GeneMatrix <- read.delim("D:/GeneMatrix.txt")
+GeneMatrix <- t(GeneMatrix)
+GeneMatrix <- as.data.frame(GeneMatrix)
+
+data=scale(GeneMatrix)
+
+pca=princomp(data,cor=T)
+```
+
+```{r echo=FALSE}
+screeplot(pca,type="line",lwd=2)
+```
+
+```{r warning=FALSE,message=FALSE}
+cor_table=cor(data)
+eigen=eigen(cor_table)
+sumeigv=sum(eigen$values)
+k=389
+#0.90 can be modified into any another number, which impies how much information will be thrown away.
+while ((sum(eigen$values[1:k])/sumeigv) >= 0.85)
+{
+  k = k - 1
+}
+k=k+1
+k
+vectors=pca$loadings[,1:k]
+```
+```{r}
+features<-as.data.frame(0)
+
+for(i in 1:k)
+{
+  for(j in 1:length(GeneMatrix[,1]))
+    features[j,i]=matrix(data[j,],1,389)%*%matrix(vectors[,i],389,1)
+}
+
+newdata<-features
+rownames(newdata)<-rownames(GeneMatrix)
+dist=dist(newdata,method="euclidean")
+model<-hclust(dist,method="average")
+Matrix<-data.matrix(dist)
+```
+Then I can plot the heatmap
+```{r echo=FALSE}
+heatmap(Matrix,col = rev(brewer.pal(10,"RdYlBu")),labRow = F, labCol = F,scale='column',main="Hierarchical Clustering")
+```
+<br>
+Finally, using the model to do the prediction to see the amount of information that has been lost during the PCA process.
+```{r}
+predict=cutree(model,k=2)
+predict<-as.data.frame(predict)
+
+clinical_data <- read.delim("D:/clinical_data.txt")
+state=clinical_data[1,8]
+GeneMatrix <- cbind(state,GeneMatrix)
+names(GeneMatrix)[which(names(GeneMatrix[,])=="PH-4")]=c("PH4")
+for(i in 1:3)
+{
+  clinical_data$sampleID=sub("-",".",clinical_data$sampleID)
+}
+for( i in 1:length(GeneMatrix$state))
+{
+  GeneMatrix[i,1]=clinical_data[which(clinical_data$sampleID==row.names(GeneMatrix[i,])),8]
+}
+count=0
+for(i in 1:length(GeneMatrix[,1]))
+{
+  if((as.character(GeneMatrix[i,1])=="Positive" && predict[i,1]=="2") || (as.character(GeneMatrix[i,1])=="Negative" && predict[i,1]=="1"))
+    count=count+1
+}
+```
+
+```{r echo=FALSE}
+show("Error Rate:")
+show(count/length(GeneMatrix[,1]))
+```
+
+##Conculution
+To be honest, I think the heatmap of data after PCA is less clear than that before.However the error rate implies that the PCA didn't toss away a lot of information. Instead, it helps to solve some of the over-fitting problem.
