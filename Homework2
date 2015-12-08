@@ -1,0 +1,53 @@
+---
+title: "hw2_2012011513"
+date:"2015.12.8"
+output: pdf_document
+---
+
+
+
+```{r}
+library(ggplot2)
+library(stats)
+
+
+colnames <- c("rowname",unlist(strsplit(readLines(fid,1),"\t")))
+
+data<-read.table("E:/Bio_test/GeneMatrix.txt")
+data<-t(data)
+cal_distance=dist(data,method='euclidean')
+model1=hclust(cal_distance,method='average')
+diffpart=cutree(model1,k=2)
+```
+
+```{r echo=FALSE}
+plot(hclust(cal_distance, method="average"), hang=-1, labels=FALSE, main='Method "average"', sub="")
+```
+
+```{r}
+temp_data_ht<-as.matrix(cal_distance)
+```
+
+```{r echo=FALSE}
+heatmap(temp_data_ht,labRow=F,labCol=F)
+temp_pca = cmdscale(cal_distance,k=10,eig=T)
+```
+
+```{r}
+x = temp_pca$points[,1]
+y = temp_pca$points[,2]
+```
+
+```{r echo=FALSE}
+plot(x,y,col=c('black','blue'))
+```
+
+```{r}
+temp_result = ggplot(data.frame(x,y),aes(x,y))
+temp_result + geom_point(size=3,alpha=0.9,aes(colour=factor(diffpart)))
+result<-temp_pca$point
+```
+
+```{r echo=FALSE}
+heatmap(result,labRow=F)
+```
