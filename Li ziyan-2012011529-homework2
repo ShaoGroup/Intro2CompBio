@@ -1,0 +1,91 @@
+---
+title: "homework2"
+author: "liziyan"
+date: "2015.12.6"
+output: html_document
+---
+
+＃Hierarchical Clustering
+The heatmap shows the result of patients' Hierarchical Clustering.
+The  output sentence shows how many patients are classified incorrectly.
+```{r}
+setwd("/Users/liziyan/Desktop/HomeworkII");
+mydata<-read.table("GeneMatrix.txt",header = T,row.names = 1);
+mydata<-as.matrix(mydata);
+mydata<-t(mydata);#每行一个病人，每列一个特征
+dis<-dist(mydata,method = "euclidean");
+x<-as.matrix(dis);
+x_heatmap<-heatmap(x,Rowv=NULL,Colv=NULL,col=cm.colors(256),margins=c(5,10),cexRow=1,cexCol=0.5)
+#得到分类结果
+data<-read.table("clinical_data",sep ='\t',header = T,row.names = 1);
+hcl<-hclust(dis,method = "average",members = NULL); #用"average"方法
+#hcl<-hclust(dis);
+type<-cutree(hcl,k=2);#分类个数为2
+n<-length(type);
+err=0;
+str<-attr(type,"names");# 取出名字
+for (i in 1:n){
+  stri<-str[i];
+  substr(stri,5,5)<-"-";
+  substr(stri,8,8)<-"-";
+  substr(stri,13,13)<-"-";
+  str1<-data[stri,"ER_Status_nature2012"];
+if(!is.na(str1))  #处理值为NA的情况
+{
+  if((str1=="Negative"&&type[i]==1)||(str1=="Positive"&&type[i]==2))
+  {err=err+1;}
+}
+}
+paste("the total num of err classify is",err)
+```
+
+#Hierarchical Clustering after PCA
+The heatmap shows the result of patients' Hierarchical Clustering after adding PCA.
+The output sentence shows how many patients are classified incorrectly after adding PCA..
+```{r}
+setwd("/Users/liziyan/Desktop/HomeworkII");
+mydata<-read.table("GeneMatrix.txt",header = T,row.names = 1);
+mydata<-t(mydata);#每列为特征
+cov_data<-cov(mydata);
+ev<-eigen(cov_data)
+a<-ev$val;
+vect<-ev$vec;
+s=sum(a);
+gate=0.9;  #阈值
+for(i in 1:389){
+  s_t<-sum(a[1:i]);
+  if(s_t/s>gate)
+  {break;}
+}
+num=i;
+trans_m=vect[1:389,1:num];
+y=t(trans_m)%*%t(mydata);#得到新特征矩阵
+y=t(y);
+dis_pca<-dist(y,method = "euclidean");
+x=as.matrix(dis_pca);
+x_heatmap<-heatmap(x,Rowv=NULL,Colv=NULL,col=cm.colors(256),margins=c(5,10),cexRow=1,cexCol=0.5);
+#得到分类结果
+data<-read.table("clinical_data",sep ='\t',header = T,row.names = 1);
+hcl<-hclust(dis_pca,method = "average",members = NULL); #用"average"方法
+#hcl<-hclust(dis);
+type<-cutree(hcl,k=2);#分类个数为2
+n<-length(type);
+err=0;
+str<-attr(type,"names");# 取出名字
+for (i in 1:n){
+  stri<-str[i];
+  substr(stri,5,5)<-"-";
+  substr(stri,8,8)<-"-";
+  substr(stri,13,13)<-"-";
+  str1<-data[stri,"ER_Status_nature2012"];
+  if(!is.na(str1))  #处理值为NA的情况
+  {
+    if((str1=="Negative"&&type[i]==1)||(str1=="Positive"&&type[i]==2))
+    {err=err+1;}
+  }
+}
+paste("the total num of err classify is",err)
+```
+According to the answer,we can see that the patients can be classified into two types.
+The error rate of classification after PCA associated with the thresholds in PCA.When I set 0.9, the error rates of two methods are almost the same. 
+
