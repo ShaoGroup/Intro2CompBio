@@ -10,26 +10,33 @@ I use the R code as followed to do the hierarchical clustering, in which the met
 
 ```{r warning=FALSE,message=FALSE}
 library(RColorBrewer)
+library(gplots)
+
 GeneMatrix <- read.delim("D:/GeneMatrix.txt")
 GeneMatrix <- t(GeneMatrix)
 length<-length(GeneMatrix[1,])
 GeneMatrix <- as.data.frame(GeneMatrix)
 #Calculate the distance
-dist=dist(GeneMatrix,method="euclidean")
+distance=dist(GeneMatrix)
 #Hierarchical Clustering Model
-H_cluster<-hclust(dist,method="average")
+H_cluster<-hclust(distance,method="average")
 model<-H_cluster
 H_cluster<-cbind(GeneMatrix,Cluster=H_cluster$order)
 H_cluster<-as.data.frame(H_cluster)
 H_cluster<-H_cluster[order(H_cluster$Cluster),]
 H_cluster<-H_cluster[,1:length]
 Matrix<-data.matrix(H_cluster)
+
+myclust <- function(x){
+  hclust(x , method = "average")
+}
 ```
 
 The hierarchical clustering leads to the heatmap as followed, I use the "heatmap" function instead of the ggplot function because of the efficiency.In R, hclust function do the hierarchical clustering automatically: 
 
 ```{r, echo=FALSE}
 heatmap(Matrix,col = rev(brewer.pal(10,"RdYlBu")),labRow = F, labCol = F,scale='column',main="Hierarchical Clustering")
+
 ```
 
 You can still see there are "horizontal stripes" in the heatmap, which implies the classification of the patients.
@@ -163,9 +170,9 @@ for(i in 1:k)
 
 newdata<-features
 rownames(newdata)<-rownames(GeneMatrix)
-dist=dist(newdata,method="euclidean")
-model<-hclust(dist,method="average")
-Matrix<-data.matrix(dist)
+distance=dist(newdata,method="euclidean")
+model<-hclust(distance,method="average")
+Matrix<-data.matrix(distance)
 ```
 Then I can plot the heatmap
 ```{r echo=FALSE}
