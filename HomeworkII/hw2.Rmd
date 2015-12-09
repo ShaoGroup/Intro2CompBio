@@ -1,0 +1,93 @@
+---
+title: "hw2"
+author: "Mao Xin"
+output: html_document
+---
+
+## Import libarary
+
+```{r}
+if (!require("gplots")) {
+  install.packages("gplots", dependencies = TRUE)
+  library(gplots)
+} # for the use of heatmap.2
+
+if (!require("RColorBrewer")) {
+  install.packages("RColorBrewer", dependencies = TRUE)
+  library(RColorBrewer)
+} # provide pallet for heatmap.2
+
+if (!require("FactoMineR")) {
+  install.packages("FactoMineR", dependencies = TRUE)
+  library(FactoMineR)
+} # advanced PCA
+```
+
+## Clustering without PCA
+
+```{r}
+setwd('/Users/maoxin/Desktop/bio_HomeworkII')
+df <- read.delim("GeneMatrix.txt")
+df_1 <- as.data.frame(t(df))
+
+distance <- dist(df_1, method='euclidean')
+m_dist <- as.matrix(distance)
+cl_func <- function(foo) {
+  hclust(foo, method = "average")
+}
+heatmap.2(m_dist, trace='none', labRow=NA, labCol=NA, 
+          dendrogram="col", col=brewer.pal(9, "YlOrRd"), hclustfun=cl_func)
+# heatmap with hclust with the 'average' method
+# two cluster group can be detected
+
+cl <- hclust(distance, method='average')
+cl_result <- cutree(cl, k=2)
+plot(cl_result)
+# group 1 contains 413 observations and group 2 contains 109 ones
+```
+
+## Clustering with PCA (Threshold set to be 0.8)
+
+```{r}
+pca_result <- PCA(df_1, scale.unit=T, ncp=ncol(df_1), graph=F)
+df_2 <- pca_result$ind$coord[,1:tail(which(pca_result$eig$`cumulative percentage of variance` <=80), n=1)]
+# set the pca threshold to be 0.8
+
+distance_2 <- dist(df_2, method='euclidean')
+m_dist_2 <- as.matrix(distance_2)
+heatmap.2(m_dist_2, trace='none', labRow=NA, labCol=NA, 
+          dendrogram="col", col=brewer.pal(9, "YlOrRd"), hclustfun=cl_func)
+# two cluster group can be detected
+
+cl_2 <- hclust(distance_2, method='average')
+cl_result_2 <- cutree(cl_2, k=2)
+plot(cl_result_2)
+# group 1 contains 431 observations and group 2 contains 91 ones
+```
+
+## Evaluate the performance based on artificial classification
+```{r}
+test_df <- read.delim("clinical_data")
+test_df$sampleID = gsub("-", ".", test_df$sampleID)
+rownames(test_df) <- test_df$sampleID
+test_df_1 <- test_df[rownames(df_2),]
+test_df_1$ER_Status_nature2012 <- gsub("Positive", 1, test_df_1$ER_Status_nature2012)
+test_df_1$ER_Status_nature2012 <- gsub("Negative", 2, test_df_1$ER_Status_nature2012)
+test_df_1$ER_Status_nature2012 <- as.numeric(test_df_1$ER_Status_nature2012)
+plot(test_df_1$ER_Status_nature2012)
+# group 1 (ER_Status_nature2012=='Positive') contains 404 observations and group 2 (ER_Status_nature2012=='Negative') contains 118 ones
+
+error_direct <- sum(abs(test_df_1$ER_Status_nature2012 - cl_result)) / nrow(df_1)
+error_pca <- sum(abs(test_df_1$ER_Status_nature2012 - cl_result_2)) / nrow(df_1)
+# calculate the total number of wrong clustering
+
+print(error_direct)
+print(error_pca)
+```
+
+## Discussion
+
+The direct clustering, PCA enhanced clustering, and artificial classification show the same result of two groups with the first one contaions about 400 observations.
+
+The error rate of the direct clustering is 0.06321839 while the rate of PCA enhanced clustering increases to 0.09770115. This is caused by the omitting of information with weak correlation. 
+
