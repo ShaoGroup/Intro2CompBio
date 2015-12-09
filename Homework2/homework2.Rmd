@@ -126,7 +126,7 @@ myclust <- function(x){
 ```
 ##Heatmap2
 ```{r echo=FALSE}
-heatmap.2(as.matrix(gene_expression),
+heatmap.2(as.matrix(cprs_data),
           trace='none',
           hclustfun=myclust,labRow=NA,
           main="Heatmap2",
