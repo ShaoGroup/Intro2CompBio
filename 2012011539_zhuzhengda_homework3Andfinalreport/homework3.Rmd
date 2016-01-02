@@ -1,0 +1,55 @@
+---
+title: "homework3"
+author: "zhuzhengda"
+date: "2015Äê12ÔÂ24ÈÕ"
+output: word_document
+---
+
+#cyclical coordinate descent for lasso
+  The algorithm I use is coordinate descent for lasso (aka shooting algorithm). And the result shows that I got almost the same result compared with the coefficients calculated by glmnet.
+  
+```{r}
+  library(glmnet)
+  library(lars)
+  ## read in data
+  data<-read.table("data.txt",sep ='\t',header=TRUE)
+  x<-as.matrix(data[,1:8])
+  y<-as.matrix(data[,9])
+  
+  ## R package glmnet for lasso
+  gla <- cv.glmnet(x, y, nfolds = 10)
+  plot(gla)
+  la<-gla$lambda.1se
+  para<-coef(gla$glmnet.fit, s = gla$lambda.1se)
+  
+  ## my algorithm 
+  x0<-scale(x)          #Data standardization
+  sigma<-attr(x0,"scaled:scale")
+  muy<-mean(y)
+  y0<-y-muy
+  active<-array(1,c(1,8))   #predictors for variables
+  b<-array(0,c(8,1))
+  weight<-dim(x)[1]
+  threshold<-la  #here I use the optimal lambda from previous results
+  while(TRUE){
+    bold<-b
+    r<-y0-x0[,which(active==1)]%*%b[which(active==1)]
+    for(j in which(active==1)){ #Regress j-th partial residuals on j-th predictor
+      bjold<-b[j]
+      rj<-r+b[j]*x0[,j]
+      bj<-(t(x0[,j])%*%rj)/weight
+      b[j]<-sign(bj)*max((abs(bj)-threshold),0) #Soft thresholding
+      if(b[j]==0)
+        active[j]<-0
+      r<-r-x0[,j]*(b[j]-bjold)
+    }
+    if(max(abs(b-bold))<0.0001) #threshold test
+      break
+  }
+  b<-b/sigma
+  print("the result of glmnet:")
+  print(para)
+  print("the result of my algorithm :")
+  print(b)
+
+```
