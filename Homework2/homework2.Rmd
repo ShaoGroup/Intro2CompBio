@@ -1,0 +1,174 @@
+---
+title: "homework2_2012011467"
+author: "Shaoming Song"
+date: "2015年12月7日"
+output: html_document
+---
+##Hierarchical Clustering Based on original data
+##Special thanks to Rhodes Zhang for teaching me how to use R ^_^
+
+```{r}
+
+library(RColorBrewer)
+library(gplots)
+
+##load data
+setwd("C:/study/大四上/生物信息学/homework2")
+gene_expression <- read.table(file = "GeneMatrix.txt")
+gene_expression <- t(gene_expression)
+gene_expression <- as.data.frame(gene_expression)
+
+##get length & distance to clust
+length <- length(gene_expression[1,])
+d <- dist(gene_expression)
+
+##Hierarchical Clustering & get the results of classification
+hc <- hclust(d , method = "average")
+model <- hc
+result=cutree(model,k=2)
+
+##define a function which is used in drawing heatmap
+myclust <- function(x){
+  hclust(x , method = "average")
+}
+```
+##Heatmap1
+```{r echo=FALSE}
+heatmap.2(as.matrix(gene_expression),
+          trace='none',
+          hclustfun=myclust,labRow=NA,
+          main="Heatmap1",
+          col = rev(brewer.pal(10,"RdYlBu"))
+          )
+```
+
+```{r}
+##testing
+ clinic_data <- read.delim(file = "clinical_data.txt")
+ state <- clinic_data[1,8]
+ 
+##bind the results with original data
+##here I use the codes of Rhodes Zhang
+ gene_expression <- cbind(state,gene_expression)
+ names(gene_expression)[which(names(gene_expression[,])=="PH-4")]=c("PH4")
+ for(i in 1:3)
+   {
+       clinic_data$sampleID=sub("-",".",clinic_data$sampleID)
+     }
+ for( i in 1:length(gene_expression$state))
+   {
+       gene_expression[i,1]=clinic_data[which(clinic_data$sampleID==row.names(gene_expression[i,])),8]
+ }
+ 
+##count and print err rate 
+ count <- 0
+ result <- as.data.frame(result)
+ for(i in 1:length(gene_expression[,1]))
+ {
+      if((as.character(gene_expression[i,1])=="Positive" && result[i,1]=="2") || (as.character(gene_expression[i,1])=="Negative" && result[i,1]=="1"))
+          count=count+1
+ }
+```
+##Error Rate
+
+``` {r echo=FALSE}
+ show("Error Rate:")
+ show(count/length(gene_expression[,1]))
+``` 
+##Hierarchical Clustering Based on PCA data
+
+```{r}
+##load data
+gene_expression <- read.table(file = "GeneMatrix.txt")
+gene_expression <- t(gene_expression)
+gene_expression <- as.data.frame(gene_expression)
+
+##normalization
+data <- scale(gene_expression)
+
+##PCA
+pca <- princomp(data,cor = T)
+
+##get feature & choose principal component
+feature <- pca$sdev^2
+sum_f <- sum(feature)
+k <- 389
+while((sum(feature[1:k]) / sum_f) >= 0.75)
+{
+  k = k - 1
+}
+
+##get PCS & calculate cprs_data
+pcs <- pca$loadings[,1:k]
+sam <- length(data[,1])
+cprs_data <- as.data.frame(0)
+for(i in 1:k)
+{
+  for(j in 1:sam)
+  {
+    cprs_data[j,i] = matrix(data[j,],1,389) %*% matrix(pcs[,i],389,1)
+  }
+}
+
+##Hierarchical Clustering & get the results of classification
+rownames(cprs_data) <- rownames(gene_expression)
+distance <- dist(cprs_data,method = "euclidean")
+hc <- hclust(distance,method = "average")
+d <- dist(gene_expression)
+model <- hc
+result=cutree(hc,k=2)
+
+
+##the codes below is the same as former
+myclust <- function(x){
+  hclust(x , method = "average")
+}
+```
+##Heatmap2
+```{r echo=FALSE}
+heatmap.2(as.matrix(cprs_data),
+          trace='none',
+          hclustfun=myclust,labRow=NA,
+          main="Heatmap2",
+          col = rev(brewer.pal(10,"RdYlBu"))
+)
+```
+
+```{r}
+clinic_data <- read.delim(file = "clinical_data.txt")
+state <- clinic_data[1,8]
+
+
+
+cprs_data <- cbind(state,cprs_data)
+names(cprs_data)[which(names(cprs_data[,])=="PH-4")]=c("PH4")
+for(i in 1:3)
+{
+  clinic_data$sampleID=sub("-",".",clinic_data$sampleID)
+}
+for( i in 1:length(cprs_data$state))
+{
+  cprs_data[i,1]=clinic_data[which(clinic_data$sampleID==row.names(cprs_data[i,])),8]
+}
+
+
+
+count <- 0
+result <- as.data.frame(result)
+for(i in 1:length(cprs_data[,1]))
+{
+  if((as.character(cprs_data[i,1])=="Positive" && result[i,1]=="2") || (as.character(cprs_data[i,1])=="Negative" && result[i,1]=="1"))
+    count=count+1
+}
+```
+##Error Rate
+
+```{r echo=FALSE}
+show("Error Rate:")
+show(count/length(cprs_data[,1]))
+```
+
+##Discussion
+In hc based on original data, the error rate is 6.32%. 
+In hc based on PCA, because I set the threshold as 0.75 for I think the number of components should not be more than 50, which means components whose sum of scales is less than 25% are dropped, the error rate reduces to 9.58%. 
+If I set the threshold of PCA as 0.8 or more, the result can be the same as hc based on original data, even better.
