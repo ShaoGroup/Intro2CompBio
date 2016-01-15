@@ -1,0 +1,63 @@
+---
+title: "Homework3"
+author: "Rhodes"
+date: "2016Äê1ÔÂ14ÈÕ"
+output: html_document
+---
+
+```{r warning=FALSE,message=FALSE}
+library(fBasics)
+library(glmnet)
+library(lars)
+
+data<-read.table("data.txt")
+x<-as.matrix(data[,1:8])
+y<-as.matrix(data[,9])
+  
+#using R package glmnet to do the lasso
+model <- cv.glmnet(x, y, nfolds = 10)
+plot(model)
+para<-coef(model$glmnet.fit, s = model$lambda.1se)
+
+#My Algrithm
+x<-scale(data[,1:8])
+sigma<-attr(x,"scaled:scale")
+y<-data[,9]
+y<-y-mean(y)
+X<-as.matrix(x)
+Y<-as.matrix(y)
+XTX<-t(X)%*%X
+XTY<-t(X)%*%Y
+
+#using lambda before
+lambda<-model$lambda.1se
+
+I<-matrix(0,8,8)
+for(i in 1:8)
+{
+  I[i,i]=1
+}
+
+#Initiate the w vector
+w=solve((XTX+lambda*I))%*%XTY
+
+while(TRUE)
+{
+  w_old=w
+  for(i in 1:8)
+  {
+    c=(t(X[,i])%*%(Y-X%*%w+w[i]*X[,i]))/length(data[,1])
+    w[i]<-sign(c)*max((abs(c)-lambda),0)
+  }
+  if(max(abs(w-w_old))<1e-10)
+    break
+}
+
+print("the result of glmnet:")
+print(para)
+print("the result of my algorithm :")
+w=w/sigma
+print(w)
+
+
+```
