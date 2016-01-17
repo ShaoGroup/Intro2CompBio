@@ -1,0 +1,62 @@
+---
+title: "ComBio HomeWork3"
+author: Jiaqi Ma
+data: Jan 17, 2015
+output: pdf_document
+---
+
+# LASSO
+
+Initialization:
+
+```{r warning=FALSE}
+library(glmnet)
+library(lars)
+dataset<-read.table("prostate.txt")
+rawdata_x <- as.matrix(dataset[,1:8])
+rawdata_y <- as.matrix(dataset[,9])
+n=length(dataset[,1])
+```
+
+Results of glment:
+
+```{r warning=FALSE}
+res_g <- cv.glmnet(rawdata_x, rawdata_y, nfolds=10)
+para <- coef(res_g$glmnet.fit, s=res_g$lambda.1se)
+print(para)
+```
+
+My Implementation:
+```{r warning=FALSE}
+# standardization
+X <- scale(rawdata_x)
+x_scale <- attr(X,"scaled:scale")
+Y <- rawdata_y-mean(rawdata_y)
+
+# lasso optimization
+lambda <- res_g$lambda.1se
+
+A <- t(X)%*%X
+B <- t(X)%*%Y
+for (i in 1:8)
+  {
+    A[i,i]=A[i,i]+lambda
+  }
+w=solve(A)%*%B
+
+for (step in 1:100)
+  {
+    w0 <- w
+    for (i in 1:8)
+      {
+        c <- t(X[,i])%*%(Y-X%*%w+w[i]*X[,i])/n
+        w[i] <- sign(c)*max((abs(c)-lambda),0)
+      }
+    if(max(abs(w-w0))<1e-8)
+      {
+        break
+      }
+  }
+w=w/x_scale
+print(w)
+```
