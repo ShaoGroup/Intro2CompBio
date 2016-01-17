@@ -1,0 +1,62 @@
+---
+title: "CompBio HW3"
+author: Fei Xia
+data: Jan 17, 2015
+output: pdf_document
+---
+
+# Lasso
+
+Loading data:
+
+```{r warning=FALSE}
+library(glmnet)
+library(lars)
+dataset<-read.table("prostate.txt")
+x <- as.matrix(dataset[,1:8])
+y <- as.matrix(dataset[,9])
+n=length(dataset[,1])
+```
+
+Results of glment:
+
+```{r warning=FALSE}
+reg_res <- cv.glmnet(x, y, nfolds=5)
+parameters <- coef(reg_res$glmnet.fit, s=reg_res$lambda.1se)
+print(parameters)
+```
+
+My Implementation of Lasso:
+```{r warning=FALSE}
+# normalization
+X <- scale(x)
+x_coef <- attr(X,"scaled:scale")
+Y <- y-mean(y)
+
+# lasso optimization
+lambda <- reg_res$lambda.1se
+eps = 1e-8
+A <- t(X)%*%X
+b <- t(X)%*%Y
+for (i in 1:8)
+  {
+    A[i,i]=A[i,i]+lambda
+  }
+w=solve(A)%*%b
+
+for (step in 1:100)
+  {
+    w0 <- w
+    for (i in 1:8)
+      {
+        c <- t(X[,i])%*%(Y-X%*%w+w[i]*X[,i])/n
+        w[i] <- sign(c)*max((abs(c)-lambda),0)
+      }
+    if(max(abs(w-w0))<eps)
+      {
+        break
+      }
+  }
+w=w/x_coef
+print(w)
+```
