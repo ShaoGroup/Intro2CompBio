@@ -1,0 +1,96 @@
+---
+title: "hw3"
+author: "Mao Xin"
+output: html_document
+---
+
+# Math
+
+![](/Users/maoxin/Desktop/IMG_2722.jpg "")
+
+# Programing
+## Import libarary
+
+```{r}
+if (!require("glmnet")) {
+  install.packages("glmnet", dependencies = TRUE)
+  library(glmnet)
+}
+```
+
+## LASSO using glmnet Libarary
+
+### Method
+
+```{r}
+# Load Data
+prostate = read.table('/Users/maoxin/Desktop/prostate.txt')
+prostate_train = prostate[which(prostate$train==TRUE),]
+prostate_test = prostate[which(prostate$train==FALSE),]
+x_train <- as.matrix(prostate_train[,1:8])
+y_train <- as.matrix(prostate_train[,9])
+x_test <- as.matrix(prostate_test[,1:8])
+y_test <- as.matrix(prostate_test[,9])
+
+model <- cv.glmnet(x_train, y_train)
+# lambda.1se corresponds to the simplest model that has comparable error to the best model given the uncertainty
+lambda = model$lambda.1se
+plot(model)
+```
+
+### Regression Parameters And Model Estimation
+
+```{r}
+param <- coef(model$glmnet.fit, s=lambda)
+print(param)
+
+y_predict <- predict(model, newx=x_test, s=lambda)
+RSS <- sum((y_predict - y_test)^2)
+print(RSS)
+```
+
+## LASSO using Subgradient
+
+### Method
+
+```{r}
+# eliminate beta_0
+x_train<-scale(prostate_train[,1:8])
+sigma<-attr(x_train,"scaled:scale")
+y_train<-prostate_train[,9]
+y_train<-y_train-mean(y_train)
+x_train<-as.matrix(x_train)
+y_train<-as.matrix(y_train)
+
+w <- solve(t(x_train) %*% x_train + lambda) %*% t(x_train) %*% y_train
+
+while(TRUE) {
+  w_old <- w
+  for(j in 1:8) {
+    a_j <- sum(x_train[,1]^2)
+    c_j <- sum(x_train[,j] * (y_train - x_train %*% w +  x_train[,j] * w[j]))
+    # soft threshold
+    w[j] <- sign(c_j/a_j) * max(abs(c_j/a_j) - lambda, 0)
+  }
+
+  # converged
+  if(max(abs(w - w_old)) <= 1e-10) {
+    break
+  }
+}
+
+w <- w / sigma
+
+```
+
+### Regression Parameters
+
+```{r}
+print(w)
+```
+
+## Discussion
+
+The result of LASSO using subgradient method is simmilar to the result using glmnet libarary. They set the same coefficients (age, lcp, gleason) to be zero and the difference of the rest coefficients are negligible.
+
+The LASSO using subgradient, however, can't return the intercept of model directly. So we didn't calculate the RSS as we did in the LASSO using glmnet.
