@@ -1,0 +1,52 @@
+---
+title: "hw3"
+author: "hyz"
+date: "2016Äê1ÔÂ17ÈÕ"
+output: word_document
+---
+
+library(glmnet)
+library(lars)
+setwd("E:\\hw3")
+data<-read.table("data.txt")
+x<-as.matrix(data[,1:8])
+y<-as.matrix(data[,9])
+
+
+result_g<-cv.glmnet(x, y, nfolds=10)
+plot(result_g)
+para<-coef(result_g$glmnet.fit, s=result_g$lambda.1se)
+print(para)
+
+Xt<-scale(x)
+x_scale<-attr(Xt,"scaled:scale")
+Yt<-y-mean(y)
+
+lam<-result_g$lambda.1se
+
+flag<-array(1,c(1,8))
+res<-array(0,c(8,1))
+n<-length(data[,1])
+
+while(TRUE)
+{
+  res0<-res
+  r<-Yt-Xt[,which(flag==1)]%*%res[which(flag==1)]
+  for(j in which(flag==1)){
+    temp<-res[j]
+ #  rj<-r+res[j]*Xt[,j]
+ #   c<-(t(Xt[,j])%*%rj)/n
+    c<-t(Xt[,j])%*%(r+res[j]*Xt[,j])/weight
+    res[j]<-sign(c)*max((abs(c)-lam),0)
+    if(res[j]==0)
+      flag[j]<-0
+    r<-r-Xt[,j]*(res[j]-temp)
+  }
+  if(max(abs(res-res0))<1e-8)
+  {
+    break
+  }
+}
+res<-res/x_scale
+print(res)
+
