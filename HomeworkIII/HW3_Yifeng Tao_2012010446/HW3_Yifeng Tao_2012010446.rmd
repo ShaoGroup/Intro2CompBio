@@ -1,0 +1,119 @@
+---
+title: 'CompBio HW3: Regression'
+author: "Yifeng Tao"
+date: "January 17, 2016"
+output: pdf_document
+---
+
+## 1 Multivariable Regression
+### 1.1 Maximum Likelihood & MSE
+
+We know:
+$$y_i = \beta^T x_i + \epsilon_i$$
+and $$\epsilon_i \sim N(0,\sigma^2)$$
+
+Consider MSE, its goal:
+
+$$\hat{\beta} = \arg \min_{\beta} \sum_{i = 1}^{N}(y_i - \beta^T x_i)^2 = \arg \min_{\beta} M(\beta)$$
+
+Consider Maximum likelihood, 
+$$H(\beta) = \ln \prod_{i = 1}^{N} \frac{1}{\sqrt{2\pi}\sigma} e^{-\frac{(y_i - \beta^T x_i)^2}{2 \sigma^2}} \\
+=-\frac{1}{2\sigma^2} \sum_{i = 1}^{N} (y_i - \beta^T x_i)^2 - N \ln (\sqrt{2\pi} \sigma) \\
+=-\frac{1}{2\sigma^2} M(\beta) - N \ln (\sqrt{2\pi} \sigma)$$
+
+Its goal is:
+
+$$\hat{\beta}^* = \arg \max_{\beta} H(\beta)$$
+
+Note $\sigma$ is a constant. Obviously, 
+
+$$\hat{\beta} = \arg \max_{\beta} H(\beta) \Leftrightarrow \hat{\beta} = -\frac{1}{2\sigma^2}\arg \min_{\beta} M(\beta) -N\ln (\sqrt{2\pi}\sigma) \Leftrightarrow \hat{\beta} = \arg \min_{\beta} M(\beta)$$
+
+And,
+
+$$\hat{\beta}^* = \hat{\beta}$$
+
+### 1.2 $\beta_i^* \& \beta_i$
+
+If we denote that:
+
+$$X^T = [x^{(1)}, ..., x^{(N)}]$$
+$$Y^T = [y^{(1)}, ..., y^{(N)}]$$
+$$\beta^T = [\beta_1, ..., \beta_p]$$
+
+Then, in the multivariable regression,
+$$\beta = (X^TX)^{-1}X^Ty$$
+
+and $\beta_i$ is the ith element in $\beta$
+
+Similarly, we can also derive regression coefficient of single variable $x_i$:
+
+$$\beta_i^* = \frac{[x_i^{(1)}, ..., x_i^{(N)}]}{[x_i^{(1)}, ..., x_i^{(N)}][x_i^{(1)}, ..., x_i^{(N)}]^T}Y$$
+
+We found that, if we regress only to a single variable, the coefficient is only related to the observations of this variable itself. However, if we regress to all the variable, the coefficient is related to the covariance between different variables.
+
+## 2 LASSO Algorithm
+
+```{r, echo = FALSE, warning = FALSE, cache=FALSE, include = FALSE}
+library(glmnet)
+library(lars)
+```
+
+Read in the data:
+```{r}
+data = read.table("Prostate.txt", header = TRUE, sep = "\t", row.names = 1)
+x = data[,1:8]
+y = data[,9]
+x = as.matrix(x)
+y = as.matrix(y)
+```
+
+Apply Glmnet to realize LASSO:
+```{r, warning = FALSE}
+# Glmnet for realizing LASSO.
+cvob = cv.glmnet(x, y, nfolds = 100)
+plot(cvob)
+paraG = coef(cvob$glmnet.fit, s = cvob$lambda.1se)
+```
+
+Check the result:
+```{r}
+# Output Glmnet algorithm.
+print(paraG)
+```
+
+Use LARS to realize LASSO:
+```{r}
+# My Algorithm for realizing LASSO.
+x = scale(data[,1:8])
+sigma = attr(x, "scaled:scale")
+y = data[,9]
+y = y - mean(y)
+
+lambda = cvob$lambda.1se
+I = diag(8)
+
+# Initialization.
+para = solve((t(x) %*% x +lambda*I)) %*% t(x) %*% y
+
+# Iteration.
+while(TRUE) {
+  temp=para
+  for(i in 1:8) {
+    c = (t(x[,i]) %*% (y-x %*% para+para[i]*x[,i]))/length(data[,1])
+    para[i] = sign(c) * max((abs(c)-lambda),0)
+  }
+  if(max(abs(para-temp)) < 1e-16)
+    break
+}
+# Normalization.
+paraM = para/sigma
+```
+
+Output the result of our algorithm:
+```{r}
+# Output my algorithm.
+print(paraM)
+```
+
+Note that the result of our algorithm is similar to that of Glmnet.
